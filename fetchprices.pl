@@ -31,16 +31,17 @@ sub fetchnavs() {
 				$date = `date --date="$line" "+%Y%m%d"`;
 				$date =~ s/\s*$//;
 				$isdate = 0;
-				$retdatetime = $date;
+				if ($retdatetime == "00000000") {
+					$retdatetime = $date;
+				}
 			}
 			else {
 				$nav = $line;
 				$isdate = 1;
 				# Got date,nav pair. Add to DB now...
 				print "$date :: $nav\n";
-				$query = "INSERT INTO navhistory VALUES('$mfid', $nav, $date)";
-				# If query fails, usually means duplicate entry => STOP.
-				$dbh->do($query) || return "00000000";
+				my $query = "INSERT INTO navhistory VALUES('$mfid', $nav, $date)";
+				$dbh->do($query);
 			}
 		}
 	}
@@ -51,18 +52,32 @@ sub fetchnavs() {
 
 sub fetchallnavs() {
 	my $mfid = $_[0];
-	my $startdate = "20050101", $retdate;
+	my $enddate = "20050101", $retdate, $startdate;
+	$startdate = UnixDate(ParseDate("today"), "%Y%m%d");
+	my $histcountquery = "SELECT COUNT(*) FROM navhistory WHERE mfid = '$mfid'";
+	my @qresult = $dbh->selectall_arrayref($histcountquery);
+	if ($qresult[0][0][0] > 0) {
+		my $mindatequery = "SELECT MIN(date) FROM navhistory WHERE mfid = '$mfid'";
+		my @qresult = $dbh->selectall_arrayref($mindatequery);
+		$startdate = $qresult[0][0][0];
+		$startdate = UnixDate(DateCalc($startdate, "- 5 days"), "%Y%m%d");
+		if ($startdate <= $enddate) {
+			return 0;
+		}
+	}
 
+	print "Starting from $startdate\n";
 	while (1) {
 		$retdate = &fetchnavs($startdate, $mfid);
 		if ($retdate == "00000000") {
 			return 0;
 		}
-		if ($retdate <= $startdate) {
+		if ($retdate <= $enddate) {
 			return 0;
 		}
-		$startdate = UnixDate(DateCalc($retdate, "+ 4 days"), "%Y%m%d");
+		$startdate = UnixDate(DateCalc($retdate, "- 5 days"), "%Y%m%d");
 	}
 }
 
 &fetchallnavs("MF041|ZI006");
+&fetchallnavs("MF030|SN017");
