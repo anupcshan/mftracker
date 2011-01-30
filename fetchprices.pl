@@ -1,0 +1,68 @@
+#!/usr/bin/perl
+
+use HTTP::Request::Common qw(POST);
+use LWP::UserAgent;
+use Date::Manip;
+use DBI;
+
+$ua = new LWP::UserAgent;
+$dbh = DBI->connect("dbi:SQLite:dbname=/home/anup/.mftracker/mftracker.db", "", "");
+
+sub fetchnavs() {
+	my $datetime = $_[0];
+	my $mfid = $_[1];
+	my @sch_name = split (/\|/, $mfid);
+	my $day = substr ($datetime, 6, 2), $month = substr ($datetime, 4, 2), $year = substr ($datetime, 0, 4);
+	my $request = POST 'http://www.mutualfundsindia.com/historical_nav_rpt.asp',
+			[sch_name => $sch_name[0], sch_name1 => $sch_name[1], day1 => $day, mon1 => $month, year1 => $year];
+	my $response = $ua->request($request);
+	my $body = $response->content;
+	my $date = "", $nav = 0, $isdate = 1;
+	my $retdatetime = "00000000";
+
+	for(split /\n/, $body) {
+		my($line) = $_;
+		chomp($line);
+		if($line =~ /<td align="left" valign="middle" bgcolor="#FFFFFF" class="bluebig">/) {
+			$line =~ s/<[^>]*>//g;
+			$line =~ s/^\s*//;
+			$line =~ s/\s*$//;
+			if ($isdate) {
+				$date = `date --date="$line" "+%Y%m%d"`;
+				$date =~ s/\s*$//;
+				$isdate = 0;
+				$retdatetime = $date;
+			}
+			else {
+				$nav = $line;
+				$isdate = 1;
+				# Got date,nav pair. Add to DB now...
+				print "$date :: $nav\n";
+				$query = "INSERT INTO navhistory VALUES('$mfid', $nav, $date)";
+				# If query fails, usually means duplicate entry => STOP.
+				$dbh->do($query) || return "00000000";
+			}
+		}
+	}
+
+	return $retdatetime;
+}
+
+
+sub fetchallnavs() {
+	my $mfid = $_[0];
+	my $startdate = "20050101", $retdate;
+
+	while (1) {
+		$retdate = &fetchnavs($startdate, $mfid);
+		if ($retdate == "00000000") {
+			return 0;
+		}
+		if ($retdate <= $startdate) {
+			return 0;
+		}
+		$startdate = UnixDate(DateCalc($retdate, "+ 4 days"), "%Y%m%d");
+	}
+}
+
+&fetchallnavs("MF041|ZI006");
