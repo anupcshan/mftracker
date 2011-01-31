@@ -11,6 +11,7 @@ $dbh = DBI->connect("dbi:SQLite:dbname=/home/anup/.mftracker/mftracker.db", "", 
 sub fetchnavs() {
 	my $datetime = $_[0];
 	my $mfid = $_[1];
+	my $direction = $_[2] || -1;
 	my @sch_name = split (/\|/, $mfid);
 	my $day = substr ($datetime, 6, 2), $month = substr ($datetime, 4, 2), $year = substr ($datetime, 0, 4);
 	my $request = POST 'http://www.mutualfundsindia.com/historical_nav_rpt.asp',
@@ -31,7 +32,10 @@ sub fetchnavs() {
 				$date = `date --date="$line" "+%Y%m%d"`;
 				$date =~ s/\s*$//;
 				$isdate = 0;
-				if ($retdatetime == "00000000") {
+				if ($retdatetime == "00000000" && $direction == -1) {
+					$retdatetime = $date;
+				}
+				if ($direction == 1) {
 					$retdatetime = $date;
 				}
 			}
@@ -52,13 +56,31 @@ sub fetchnavs() {
 
 sub fetchallnavs() {
 	my $mfid = $_[0];
-	my $enddate = "20050101", $retdate, $startdate;
+	my $enddate = "20050101", $retdate, $startdate, $maxdate;
+	my @qresult, $maxdatequery;
 	$startdate = UnixDate(ParseDate("today"), "%Y%m%d");
 	my $histcountquery = "SELECT COUNT(*) FROM navhistory WHERE mfid = '$mfid'";
-	my @qresult = $dbh->selectall_arrayref($histcountquery);
+	@qresult = $dbh->selectall_arrayref($histcountquery);
 	if ($qresult[0][0][0] > 0) {
+		$maxdatequery = "SELECT MAX(date) FROM navhistory WHERE mfid = '$mfid'";
+		@qresult = $dbh->selectall_arrayref($maxdatequery);
+		$maxdate = $qresult[0][0][0];
+		if ($startdate != $maxdate) {
+			$startdate = $maxdate;
+			while (1) {
+				$retdate = &fetchnavs($startdate, $mfid, 1);
+				if ($retdate == "00000000") {
+					last;
+				}
+				if ($retdate <= $enddate) {
+					last;
+				}
+				$startdate = UnixDate(DateCalc($retdate, "+ 4 days"), "%Y%m%d");
+			}
+		}
+
 		my $mindatequery = "SELECT MIN(date) FROM navhistory WHERE mfid = '$mfid'";
-		my @qresult = $dbh->selectall_arrayref($mindatequery);
+		@qresult = $dbh->selectall_arrayref($mindatequery);
 		$startdate = $qresult[0][0][0];
 		$startdate = UnixDate(DateCalc($startdate, "- 5 days"), "%Y%m%d");
 		if ($startdate <= $enddate) {
@@ -68,7 +90,7 @@ sub fetchallnavs() {
 
 	print "Starting from $startdate\n";
 	while (1) {
-		$retdate = &fetchnavs($startdate, $mfid);
+		$retdate = &fetchnavs($startdate, $mfid, -1);
 		if ($retdate == "00000000") {
 			return 0;
 		}
