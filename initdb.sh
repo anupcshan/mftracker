@@ -71,7 +71,7 @@ then
 	sqlite3 $DBFILE 'CREATE TABLE navhistory(
 		mfid varchar(20),
 		nav float,
-		date varchar(10),
+		date integer,
 		PRIMARY KEY(mfid, date)
 		);'
 fi
