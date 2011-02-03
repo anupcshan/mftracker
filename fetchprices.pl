@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use HTTP::Request::Common qw(POST);
+use HTTP::Request::Common qw(POST GET);
 use LWP::UserAgent;
 use Date::Manip;
 use DBI;
@@ -101,12 +101,40 @@ sub fetchallnavs() {
 	}
 }
 
+sub getandupdatemfinfo() {
+	my $mfid = $_[0];
+	my ($amc_name, $sch_name) = split (/\|/, $mfid);
+	my $mfname = "";
+
+	my $response = $ua->request(GET "http://www.mutualfundsindia.com/sch_info.asp?scheme=".$amc_name);
+	my $body = $response->content;
+
+	for(split /\n/, $body) {
+		my($line) = $_;
+		chomp($line);
+		if($line =~ /scheme=$sch_name/) {
+			$line =~ s/<[^>]*>//g;
+			$line =~ s/^\s*//;
+			$line =~ s/\s*$//;
+			$mfname = $line;
+			print $mfid." is ".$mfname."\n";
+			my $updatemfnamequery = "UPDATE mfinfo SET mfname = '$mfname' WHERE mfid = '$mfid'";
+			$dbh->do($updatemfnamequery);
+		}
+	}
+
+	return $mfname;
+}
+
 sub updateallmfs() {
-	my $listmfsquery = "SELECT mfid FROM mfinfo";
+	my $listmfsquery = "SELECT mfid, mfname FROM mfinfo";
 	my $qresult = $dbh->selectall_arrayref($listmfsquery);
 	for my $mfrow (@$qresult) {
-		my ($mfid) = @$mfrow;
-		print "Updating data for $mfid...\n";
+		my ($mfid, $mfname) = @$mfrow;
+		if ($mfname =~ /^$/) {
+			$mfname = &getandupdatemfinfo($mfid);
+		}
+		print "Updating data for $mfname...\n";
 		&fetchallnavs($mfid);
 	}
 }
