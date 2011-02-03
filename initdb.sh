@@ -61,9 +61,8 @@ then
 	log 4 "Creating table MFINFO..."
 	sqlite3 $DBFILE 'CREATE TABLE mfinfo(
 		mfid varchar(20) primary key,
-		mfname varchar2(40),
-		nav float,
-		lastupdated integer);'
+		mfname varchar2(40)
+		);'
 fi
 
 if [ -z "`sqlite3 $DBFILE '.schema navhistory'`" ]
