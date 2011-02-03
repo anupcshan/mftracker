@@ -101,5 +101,14 @@ sub fetchallnavs() {
 	}
 }
 
-&fetchallnavs("MF041|ZI006");
-&fetchallnavs("MF030|SN017");
+sub updateallmfs() {
+	my $listmfsquery = "SELECT mfid FROM mfinfo";
+	my $qresult = $dbh->selectall_arrayref($listmfsquery);
+	for my $mfrow (@$qresult) {
+		my ($mfid) = @$mfrow;
+		print "Updating data for $mfid...\n";
+		&fetchallnavs($mfid);
+	}
+}
+
+updateallmfs();
