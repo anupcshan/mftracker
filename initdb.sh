@@ -33,12 +33,27 @@ fi
 if [ -z "`sqlite3 $DBFILE '.schema portfolio'`" ]
 then
 	log 4 "Creating table PORTFOLIO..."
-#	sqlite3 $DBFILE 'CREATE TABLE portfolio(
-#		id integer primary key,
-#		mfid varchar(8),
-#		mftype integer,
-#		buydate date,
-#		buyprice price);'
+	sqlite3 $DBFILE 'CREATE TABLE portfolio(
+		id integer primary key,
+		mfid varchar(20),
+		sipid integer,
+		buydate date,
+		buyprice price,
+		quantity float
+		);'
+fi
+
+if [ -z "`sqlite3 $DBFILE '.schema sips'`" ]
+then
+	log 4 "Creating table SIPS..."
+	sqlite3 $DBFILE 'CREATE TABLE sips(
+		sipid integer primary key,
+		mfid varchar(20),
+		sipamount float,
+		sipdate integer,
+		installments integer,
+		previnstallment varchar(10)
+		);'
 fi
 
 if [ -z "`sqlite3 $DBFILE '.schema mfinfo'`" ]
