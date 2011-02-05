@@ -61,7 +61,8 @@ then
 	log 4 "Creating table MFINFO..."
 	sqlite3 $DBFILE 'CREATE TABLE mfinfo(
 		mfid varchar(20) primary key,
-		mfname varchar2(40)
+		mfname varchar2(40),
+		startdate integer
 		);'
 fi
 

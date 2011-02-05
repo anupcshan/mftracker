@@ -62,7 +62,7 @@ sub fetchnavs() {
 
 sub fetchallnavs() {
 	my $mfid = $_[0];
-	my $enddate = "20050101", $retdate, $startdate, $maxdate;
+	my $enddate = $_[1], $retdate, $mindate, $startdate, $maxdate;
 	my @qresult, $maxdatequery;
 	$startdate = UnixDate(ParseDate("today"), "%Y%m%d");
 	my $histcountquery = "SELECT COUNT(*) FROM navhistory WHERE mfid = '$mfid'";
@@ -87,7 +87,7 @@ sub fetchallnavs() {
 
 		my $mindatequery = "SELECT MIN(date) FROM navhistory WHERE mfid = '$mfid'";
 		@qresult = $dbh->selectall_arrayref($mindatequery);
-		$startdate = $qresult[0][0][0];
+		$startdate = $mindate = $qresult[0][0][0];
 		$startdate = UnixDate(DateCalc($startdate, "- 5 days"), "%Y%m%d");
 		if ($startdate <= $enddate) {
 			return 0;
@@ -98,9 +98,17 @@ sub fetchallnavs() {
 	while (1) {
 		$retdate = &fetchnavs($startdate, $mfid, -1);
 		if ($retdate == "00000000") {
-			return 0;
+			# In case an entire week is missing from NAV history.
+			$retdate = UnixDate(DateCalc($startdate, "- 1 days"), "%Y%m%d");
 		}
 		if ($retdate <= $enddate) {
+			print $mindate." :: ".$enddate."\n";
+			if ($mindate > $enddate) {
+				# In case the MF doesn't have NAV's for some days since its inception date,
+				# change its inception date in DB.
+				my $updatemfdatequery = "UPDATE mfinfo SET startdate = $mindate WHERE mfid = '$mfid'";
+				$dbh->do($updatemfdatequery);
+			}
 			return 0;
 		}
 		$startdate = UnixDate(DateCalc($retdate, "- 5 days"), "%Y%m%d");
@@ -111,14 +119,25 @@ sub getandupdatemfinfo() {
 	my $mfid = $_[0];
 	my ($amc_name, $sch_name) = split (/\|/, $mfid);
 	my $mfname = "";
+	my $startdate = 0;
 
-	my $response = $ua->request(GET "http://www.mutualfundsindia.com/sch_info.asp?scheme=".$amc_name);
+	my $response = $ua->request(GET "http://www.mutualfundsindia.com/fund_facts_rpt.asp?scheme=".$sch_name);
 	my $body = $response->content;
+	my $isnextname = 0;
+	my $isnextdate = 0;
 
 	for(split /\n/, $body) {
 		my($line) = $_;
 		chomp($line);
-		if($line =~ /scheme=$sch_name/) {
+		if($line =~ /class="head"/) {
+			$isnextname = 1;
+			next;
+		}
+		if($line =~ /Inception Date/) {
+			$isnextdate = 1;
+			next;
+		}
+		if ($isnextname == 1) {
 			$line =~ s/<[^>]*>//g;
 			$line =~ s/^\s*//;
 			$line =~ s/\s*$//;
@@ -126,22 +145,34 @@ sub getandupdatemfinfo() {
 			print $mfid." is ".$mfname."\n";
 			my $updatemfnamequery = "UPDATE mfinfo SET mfname = '$mfname' WHERE mfid = '$mfid'";
 			$dbh->do($updatemfnamequery);
+			$isnextname = 0;
+		}
+		if ($isnextdate == 1) {
+			$line =~ s/<[^>]*>//g;
+			$line =~ s/&nbsp;//g;
+			$line =~ s/^\s*//;
+			$line =~ s/\s*$//;
+			$startdate = UnixDate(ParseDate("$line"), "%Y%m%d");
+			print $mfname." started on ".$startdate."\n";
+			my $updatemfdatequery = "UPDATE mfinfo SET startdate = $startdate WHERE mfid = '$mfid'";
+			$dbh->do($updatemfdatequery);
+			$isnextdate = 0;
 		}
 	}
 
-	return $mfname;
+	return ($mfname, $startdate);
 }
 
 sub updateallmfs() {
-	my $listmfsquery = "SELECT mfid, mfname FROM mfinfo";
+	my $listmfsquery = "SELECT mfid, mfname, startdate FROM mfinfo";
 	my $qresult = $dbh->selectall_arrayref($listmfsquery);
 	for my $mfrow (@$qresult) {
-		my ($mfid, $mfname) = @$mfrow;
-		if ($mfname =~ /^$/) {
-			$mfname = &getandupdatemfinfo($mfid);
+		my ($mfid, $mfname, $startdate) = @$mfrow;
+		if ($mfname =~ /^$/ || $startdate == 0) {
+			($mfname, $startdate) = &getandupdatemfinfo($mfid);
 		}
 		print "Updating data for $mfname...\n";
-		&fetchallnavs($mfid);
+		&fetchallnavs($mfid, $startdate);
 	}
 }
 
