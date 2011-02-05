@@ -24,6 +24,12 @@ sub updatesip() {
 			@qresult = $dbh->selectall_arrayref($buydatequery);
 			my $buydate = $qresult[0][0][0];
 
+			if ($buydate =~ /^$/) {
+				# If no NAV entry since buydate,
+				# wait till next fetch to get new NAV entry.
+				return 0;
+			}
+
 			my $navquery = "SELECT nav FROM navhistory WHERE mfid = '$mfid' AND date = $buydate";
 			@qresult = $dbh->selectall_arrayref($navquery);
 			my $buyprice = $qresult[0][0][0];
