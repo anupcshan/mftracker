@@ -32,15 +32,22 @@ sub fetchnavs() {
 				$date = `date --date="$line" "+%Y%m%d"`;
 				$date =~ s/\s*$//;
 				$isdate = 0;
-				if ($retdatetime == "00000000" && $direction == -1) {
-					$retdatetime = $date;
-				}
-				if ($direction == 1) {
-					$retdatetime = $date;
-				}
+
 				# Got date,nav pair. Add to DB now...
+				my $insertsuccessful = 0;
 				my $query = "INSERT INTO navhistory VALUES('$mfid', $nav, $date)";
-				$dbh->do($query) && print "Adding $date :: $nav\n";
+				$dbh->do($query) && ($insertsuccessful = 1);
+
+				if ($insertsuccessful) {
+					print "Adding $date :: $nav\n";
+
+					if ($direction == -1) {
+						$retdatetime = $date;
+					}
+					if ($retdatetime == "00000000" && $direction == 1) {
+						$retdatetime = $date;
+					}
+				}
 			}
 			else {
 				$nav = $line;
