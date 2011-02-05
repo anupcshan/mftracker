@@ -18,10 +18,10 @@ sub fetchnavs() {
 			[sch_name => $sch_name[0], sch_name1 => $sch_name[1], day1 => $day, mon1 => $month, year1 => $year];
 	my $response = $ua->request($request);
 	my $body = $response->content;
-	my $date = "", $nav = 0, $isdate = 1;
+	my $date = "", $nav = 0, $isdate = 0;
 	my $retdatetime = "00000000";
 
-	for(split /\n/, $body) {
+	for(reverse (split /\n/, $body)) {
 		my($line) = $_;
 		chomp($line);
 		if($line =~ /<td align="left" valign="middle" bgcolor="#FFFFFF" class="bluebig">/) {
@@ -38,14 +38,13 @@ sub fetchnavs() {
 				if ($direction == 1) {
 					$retdatetime = $date;
 				}
+				# Got date,nav pair. Add to DB now...
+				my $query = "INSERT INTO navhistory VALUES('$mfid', $nav, $date)";
+				$dbh->do($query) && print "Adding $date :: $nav\n";
 			}
 			else {
 				$nav = $line;
 				$isdate = 1;
-				# Got date,nav pair. Add to DB now...
-				print "$date :: $nav\n";
-				my $query = "INSERT INTO navhistory VALUES('$mfid', $nav, $date)";
-				$dbh->do($query);
 			}
 		}
 	}
@@ -139,4 +138,6 @@ sub updateallmfs() {
 	}
 }
 
+open STDERR, '>/dev/null';
 updateallmfs();
+close STDERR;
