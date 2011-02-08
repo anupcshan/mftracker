@@ -64,7 +64,8 @@ sub fetchallnavs() {
 	my $mfid = $_[0];
 	my $enddate = $_[1], $retdate, $mindate, $startdate, $maxdate;
 	my @qresult, $maxdatequery;
-	$startdate = UnixDate(ParseDate("today"), "%Y%m%d");
+	# Start from yesterday. Daily NAV values are updated just after midnight.
+	$startdate = UnixDate(DateCalc(ParseDate("today"), "- 1 days"), "%Y%m%d");
 	my $histcountquery = "SELECT COUNT(*) FROM navhistory WHERE mfid = '$mfid'";
 	@qresult = $dbh->selectall_arrayref($histcountquery);
 	if ($qresult[0][0][0] > 0) {
