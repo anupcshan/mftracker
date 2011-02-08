@@ -5,10 +5,9 @@ use DBI;
 my $dbh, $mf, @qresult, $checkmfexistsquery, $insertquery;
 $dbh = DBI->connect("dbi:SQLite:dbname=/home/anup/.mftracker/mftracker.db", "", "");
 
-foreach $argnum (0 .. $#ARGV) {
-	$mf = $ARGV[$argnum];
-
-	$checkmfexistsquery = "SELECT COUNT(*) FROM mfinfo WHERE mfid = '$mf'";
+sub addmf() {
+	my $mf = $_[0];
+	my $checkmfexistsquery = "SELECT COUNT(*) FROM mfinfo WHERE mfid = '$mf'";
 	@qresult = $dbh->selectall_arrayref($checkmfexistsquery);
 	if ($qresult[0][0][0] == 0) {
 		print "Adding $mf...\n";
@@ -18,4 +17,9 @@ foreach $argnum (0 .. $#ARGV) {
 	else {
 		print "$mf exists in the database. Skipping...\n";
 	}
+}
+
+foreach $argnum (0 .. $#ARGV) {
+	$mf = $ARGV[$argnum];
+	&addmf($mf);
 }
