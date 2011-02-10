@@ -2,8 +2,10 @@
 
 use DBI;
 
-my $dbh, $mf, @qresult, $checkmfexistsquery, $insertquery;
-$dbh = DBI->connect("dbi:SQLite:dbname=/home/anup/.mftracker/mftracker.db", "", "");
+my $dbh, $insertquery;
+$home = $ENV{"HOME"};
+$dbloc = $home."/.mftracker/mftracker.db";
+$dbh = DBI->connect("dbi:SQLite:dbname=".$dbloc, "", "");
 
 sub addsip() {
 	my ($mfid, $sipamount, $sipdate, $installments) = @_;

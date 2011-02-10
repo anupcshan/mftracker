@@ -3,7 +3,9 @@
 use DBI;
 
 my $dbh, $mf, @qresult, $checkmfexistsquery, $insertquery;
-$dbh = DBI->connect("dbi:SQLite:dbname=/home/anup/.mftracker/mftracker.db", "", "");
+$home = $ENV{"HOME"};
+$dbloc = $home."/.mftracker/mftracker.db";
+$dbh = DBI->connect("dbi:SQLite:dbname=".$dbloc, "", "");
 
 sub addmf() {
 	my $mf = $_[0];

@@ -6,7 +6,9 @@ use Date::Manip;
 use DBI;
 
 $ua = new LWP::UserAgent;
-$dbh = DBI->connect("dbi:SQLite:dbname=/home/anup/.mftracker/mftracker.db", "", "");
+$home = $ENV{"HOME"};
+$dbloc = $home."/.mftracker/mftracker.db";
+$dbh = DBI->connect("dbi:SQLite:dbname=".$dbloc, "", "");
 
 sub fetchnavs() {
 	my $datetime = $_[0];
