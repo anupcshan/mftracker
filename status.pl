@@ -19,15 +19,16 @@ sub getstatusformf() {
 	$qresult = $dbh->selectall_arrayref($currentnavquery);
 	my ($currentprice) = @{@$qresult[0]};
 	my $currentvalue = $currentprice * $quantity;
-	my $pctgain = ($currentvalue - $total) / $total * 100;
-	printf ("%40s %8.3f %10.3f %8.3f %8.3f %10.3f %8.3f%\n", $mfname, $quantity, $total, $avgbuyprice, $currentprice, $currentvalue, $pctgain);
+	my $gain = $currentvalue - $total;
+	my $pctgain = $gain / $total * 100;
+	printf ("%40s %8.3f %10.3f %8.3f %8.3f %10.3f %10.3f %8.3f%\n", $mfname, $quantity, $total, $avgbuyprice, $currentprice, $currentvalue, $gain, $pctgain);
 	return ($total, $currentvalue);
 }
 
 sub getstatusbymf() {
-	print "=" x 99, "\n";
-	printf ("%40s %8s %10s %8s %8s %10s %9s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Pct Gain');
-	print "-" x 99, "\n";
+	print "=" x 110, "\n";
+	printf ("%40s %8s %10s %8s %8s %10s %10s %9s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain');
+	print "-" x 110, "\n";
 	my $listportfoliosquery = "SELECT mfid, mfname FROM mfinfo WHERE mfid IN (SELECT DISTINCT mfid FROM portfolio)";
 	my $qresult = $dbh->selectall_arrayref($listportfoliosquery);
 	my $totalbuyvalue = 0, $totalcurrentvalue = 0;
@@ -37,10 +38,11 @@ sub getstatusbymf() {
 		$totalbuyvalue += $buyvalue;
 		$totalcurrentvalue += $currentvalue;
 	}
-	my $pctgain = ($totalcurrentvalue - $totalbuyvalue) / $totalbuyvalue * 100;
-	print "-" x 99, "\n";
-	printf ("%40s %19.3f %28.3f %8.3f%\n", 'Total', $totalbuyvalue, $totalcurrentvalue, $pctgain);
-	print "=" x 99, "\n";
+	my $gain = $totalcurrentvalue - $totalbuyvalue;
+	my $pctgain = $gain / $totalbuyvalue * 100;
+	print "-" x 110, "\n";
+	printf ("%40s %19.3f %28.3f %10.3f %8.3f%\n", 'Total', $totalbuyvalue, $totalcurrentvalue, $gain, $pctgain);
+	print "=" x 110, "\n";
 }
 
 &getstatusbymf();
