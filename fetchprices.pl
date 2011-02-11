@@ -6,6 +6,7 @@ use Date::Manip;
 use DBI;
 
 $ua = new LWP::UserAgent;
+$ua->env_proxy;
 $home = $ENV{"HOME"};
 $dbloc = $home."/.mftracker/mftracker.db";
 $dbh = DBI->connect("dbi:SQLite:dbname=".$dbloc, "", "");
