@@ -4,6 +4,7 @@ use HTTP::Request::Common qw(POST GET);
 use LWP::UserAgent;
 use Date::Manip;
 use DBI;
+use Switch;
 
 $ua = new LWP::UserAgent;
 $ua->env_proxy;
@@ -180,6 +181,155 @@ sub updateallmfs() {
 	}
 }
 
+sub updatesip() {
+	my ($sipid, $mfid, $sipamount, $sipdate, $installments) = @_;
+	my $today = UnixDate(ParseDate("today"), "%Y%m%d");
+	print "Updating SIPs for $sipid...\n";
+	my @qresult;
+
+	while ($sipdate <= $today) {
+		# Find if (>=sipdate, mfid) is already in portfolio.
+		# If yes, go to next sipdate.
+		# Else, if sipdate <= today and NAV data exists for sipdate,
+		# add new entry to portfolio.
+
+		my $holdingexistsquery = "SELECT COUNT(*) FROM portfolio WHERE buydate >= $sipdate and mfid = '$mfid'";
+		@qresult = $dbh->selectall_arrayref($holdingexistsquery);
+		if ($qresult[0][0][0] == 0) {
+			my $buydatequery = "SELECT MIN(date) FROM (SELECt * FROM navhistory WHERE mfid = '$mfid' AND date >= $sipdate)";
+			@qresult = $dbh->selectall_arrayref($buydatequery);
+			my $buydate = $qresult[0][0][0];
+
+			if ($buydate =~ /^$/) {
+				# If no NAV entry since buydate,
+				# wait till next fetch to get new NAV entry.
+				return 0;
+			}
+
+			my $navquery = "SELECT nav FROM navhistory WHERE mfid = '$mfid' AND date = $buydate";
+			@qresult = $dbh->selectall_arrayref($navquery);
+			my $buyprice = $qresult[0][0][0];
+
+			my $quantity = $sipamount / $buyprice;
+			# Rounding off to nearest 3 decimal digits.
+			$quantity = (int(($quantity * 1000) + 0.5)) / 1000;
+
+			print "Adding ".$quantity." units of ".$mfid." on ".$buydate." at ".$buyprice."\n";
+			my $insertquery = "INSERT INTO portfolio VALUES(NULL, '$mfid', $sipid, $buydate, $buyprice, $quantity)";
+			$dbh->do($insertquery);
+		}
+		$sipdate = UnixDate(DateCalc($sipdate, "+ 1 month"), "%Y%m%d");
+	}
+}
+
+sub updateallsips() {
+	my $listsipsquery = "SELECT sipid, mfid, sipamount, sipdate, installments FROM sips";
+	my $qresult = $dbh->selectall_arrayref($listsipsquery);
+	for my $mfrow (@$qresult) {
+		my ($sipid, $mfid, $sipamount, $sipdate, $installments) = @$mfrow;
+		&updatesip($sipid, $mfid, $sipamount, $sipdate, $installments);
+	}
+}
+
+sub getstatusformf() {
+	my ($mfid, $mfname) = @_;
+	my $buyquery = "SELECT SUM(quantity), SUM(quantity * buyprice) FROM portfolio WHERE mfid = '$mfid'";
+	my $qresult = $dbh->selectall_arrayref($buyquery);
+	my ($quantity, $total) = @{@$qresult[0]};
+	my $avgbuyprice = $total / $quantity;
+	$avgbuyprice = (int(($avgbuyprice * 1000) + 0.5)) / 1000;
+	$total = (int(($total * 1000) + 0.5)) / 1000;
+
+	my $currentnavquery = "SELECT nav FROM navhistory WHERE mfid = '$mfid' AND date = (SELECT MAX(date) FROM navhistory WHERE mfid = '$mfid')";
+	$qresult = $dbh->selectall_arrayref($currentnavquery);
+	my ($currentprice) = @{@$qresult[0]};
+	my $currentvalue = $currentprice * $quantity;
+	my $gain = $currentvalue - $total;
+	my $pctgain = $gain / $total * 100;
+	printf ("%40s %8.3f %10.3f %8.3f %8.3f %10.3f %10.3f %8.3f%\n", $mfname, $quantity, $total, $avgbuyprice, $currentprice, $currentvalue, $gain, $pctgain);
+	return ($total, $currentvalue);
+}
+
+sub getstatusbymf() {
+	print "=" x 110, "\n";
+	printf ("%40s %8s %10s %8s %8s %10s %10s %9s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain');
+	print "-" x 110, "\n";
+	my $listportfoliosquery = "SELECT mfid, mfname FROM mfinfo WHERE mfid IN (SELECT DISTINCT mfid FROM portfolio)";
+	my $qresult = $dbh->selectall_arrayref($listportfoliosquery);
+	my $totalbuyvalue = 0, $totalcurrentvalue = 0;
+	for my $mfrow (@$qresult) {
+		my ($mfid, $mfname) = @$mfrow;
+		my ($buyvalue, $currentvalue) = &getstatusformf($mfid, $mfname);
+		$totalbuyvalue += $buyvalue;
+		$totalcurrentvalue += $currentvalue;
+	}
+	my $gain = $totalcurrentvalue - $totalbuyvalue;
+	my $pctgain = $gain / $totalbuyvalue * 100;
+	print "-" x 110, "\n";
+	printf ("%40s %19.3f %28.3f %10.3f %8.3f%\n", 'Total', $totalbuyvalue, $totalcurrentvalue, $gain, $pctgain);
+	print "=" x 110, "\n";
+}
+
+sub addmf() {
+	my $mf = $_[0];
+	my $checkmfexistsquery = "SELECT COUNT(*) FROM mfinfo WHERE mfid = '$mf'";
+	@qresult = $dbh->selectall_arrayref($checkmfexistsquery);
+	if ($qresult[0][0][0] == 0) {
+		print "Adding $mf...\n";
+		$insertquery = "INSERT INTO mfinfo VALUES('$mf', '', 0)";
+		$dbh->do($insertquery);
+	}
+	else {
+		print "$mf exists in the database. Skipping...\n";
+	}
+}
+
+sub addsip() {
+	my ($mfid, $sipamount, $sipdate, $installments) = @_;
+	print "Adding sip for $mfid...\n";
+	$insertquery = "INSERT INTO sips VALUES(NULL, '$mfid', $sipamount, $sipdate, $installments)";
+	$dbh->do($insertquery);
+}
+
 open STDERR, '>/dev/null';
-updateallmfs();
+if ($#ARGV >= 0) {
+	my $command = $ARGV[0];
+	switch ($command) {
+		case "fetch" {
+			&updateallmfs();
+		}
+		case "updatesips" {
+			&updateallsips();
+		}
+		case "status" {
+			&getstatusbymf();
+		}
+		case "addmf" {
+			if ($#ARGV == 0) {
+				print "[Error] Need to provide at least 1 MF ID to add.\n";
+				last;
+			}
+			foreach $argnum (1 .. $#ARGV) {
+				$mf = $ARGV[$argnum];
+				&addmf($mf);
+			}
+		}
+		case "addsip" {
+			if ($#ARGV != 4) {
+				print "Usage: mftracker.pl addsip <MFId> <SIP Amount> <SIP Start Date> <Installments>\n";
+				last;
+			}
+			else {
+				my ($command, $mfid, $sipamount, $sipdate, $installments) = @ARGV;
+				&addsip($mfid, $sipamount, $sipdate, $installments);
+			}
+		}
+		else {
+			print "[Error] Command $command not recognized.\n";
+		}
+	}
+}
+else {
+	print "Usage: mftracker.pl <command> <arguments>\n";
+}
 close STDERR;
