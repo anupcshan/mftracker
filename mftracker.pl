@@ -306,15 +306,13 @@ sub addsip() {
 	my $checkmfexistsquery = "SELECT COUNT(*) FROM mfinfo WHERE mfid = '$mfid'";
 	@qresult = $dbh->selectall_arrayref($checkmfexistsquery);
 	if ($qresult[0][0][0] == 0) {
-		print "Given MFID does not exist in DB. Please add using - mftracker.pl add $mfid\n";
+		print "Adding $mfid...\n";
 		$insertquery = "INSERT INTO mfinfo VALUES('$mf', '', 0)";
 		$dbh->do($insertquery);
 	}
-	else {
-		print "Adding sip for $mfid...\n";
-		$insertquery = "INSERT INTO sips VALUES(NULL, '$mfid', $sipamount, $sipdate, $installments)";
-		$dbh->do($insertquery);
-	}
+	print "Adding sip for $mfid...\n";
+	$insertquery = "INSERT INTO sips VALUES(NULL, '$mfid', $sipamount, $sipdate, $installments)";
+	$dbh->do($insertquery);
 }
 
 open STDERR, '>/dev/null';
