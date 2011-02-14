@@ -315,6 +315,21 @@ sub addsip() {
 	$dbh->do($insertquery);
 }
 
+sub dailyjob() {
+	# Hide output of updation process
+	open CPOUT, '>&STDOUT';
+	open STDOUT, '>/dev/null';
+
+	&updateallmfs();
+	&updateallsips();
+
+	# Reopen stdout
+	close STDOUT;
+	open STDOUT, '>&CPOUT';
+
+	&getstatusbymf();
+}
+
 open STDERR, '>/dev/null';
 if ($#ARGV >= 0) {
 	my $command = $ARGV[0];
@@ -347,6 +362,9 @@ if ($#ARGV >= 0) {
 				my ($command, $mfid, $sipamount, $sipdate, $installments) = @ARGV;
 				&addsip($mfid, $sipamount, $sipdate, $installments);
 			}
+		}
+		case "daily" {
+			&dailyjob();
 		}
 		else {
 			print "[Error] Command $command not recognized.\n";
