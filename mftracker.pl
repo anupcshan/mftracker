@@ -330,6 +330,18 @@ sub dailyjob() {
 	&getstatusbymf();
 }
 
+sub showhelp() {
+	print "Usage: mftracker.pl <command> <arguments>\n";
+	print "Commands: \n";
+	print "    1) fetch      - Fetch NAV values for all MFs in DB.\n";
+	print "    2) updatesips - Update portfolio holdings for SIPs.\n";
+	print "    3) status     - Print current portfolio status.\n";
+	print "    4) addmf      - Add a new MF into the DB.\n";
+	print "    5) addsip     - Add a new SIP into the DB.\n";
+	print "    6) daily      - Perform fetch, updatesips and status operations.\n";
+	print "    7) help       - Show this help message.\n";
+}
+
 open STDERR, '>/dev/null';
 if ($#ARGV >= 0) {
 	my $command = $ARGV[0];
@@ -366,12 +378,16 @@ if ($#ARGV >= 0) {
 		case "daily" {
 			&dailyjob();
 		}
+		case "help" {
+			&showhelp();
+		}
 		else {
 			print "[Error] Command $command not recognized.\n";
+			&showhelp();
 		}
 	}
 }
 else {
-	print "Usage: mftracker.pl <command> <arguments>\n";
+	&showhelp();
 }
 close STDERR;
