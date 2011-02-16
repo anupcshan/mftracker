@@ -263,14 +263,14 @@ sub getstatusformf() {
 	my $currentvalue = $currentprice * $quantity;
 	my $gain = $currentvalue - $total;
 	my $pctgain = $gain / $total * 100;
-	printf ("%40s %8.3f %10.3f %8.3f %8.3f %10.3f %10.3f %8.3f%\n", $mfname, $quantity, $total, $avgbuyprice, $currentprice, $currentvalue, $gain, $pctgain);
+	printf ("%50s %8.3f %10.3f %8.3f %8.3f %10.3f %10.3f %8.3f%\n", $mfname, $quantity, $total, $avgbuyprice, $currentprice, $currentvalue, $gain, $pctgain);
 	return ($total, $currentvalue);
 }
 
 sub getstatusbymf() {
-	print "=" x 110, "\n";
-	printf ("%40s %8s %10s %8s %8s %10s %10s %9s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain');
-	print "-" x 110, "\n";
+	print "=" x 120, "\n";
+	printf ("%50s %8s %10s %8s %8s %10s %10s %9s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain');
+	print "-" x 120, "\n";
 	my $listportfoliosquery = "SELECT mfid, mfname FROM mfinfo WHERE mfid IN (SELECT DISTINCT mfid FROM portfolio)";
 	my $qresult = $dbh->selectall_arrayref($listportfoliosquery);
 	my $totalbuyvalue = 0, $totalcurrentvalue = 0;
@@ -282,9 +282,56 @@ sub getstatusbymf() {
 	}
 	my $gain = $totalcurrentvalue - $totalbuyvalue;
 	my $pctgain = $gain / $totalbuyvalue * 100;
-	print "-" x 110, "\n";
-	printf ("%40s %19.3f %28.3f %10.3f %8.3f%\n", 'Total', $totalbuyvalue, $totalcurrentvalue, $gain, $pctgain);
-	print "=" x 110, "\n";
+	print "-" x 120, "\n";
+	printf ("%50s %19.3f %28.3f %10.3f %8.3f%\n", 'Total', $totalbuyvalue, $totalcurrentvalue, $gain, $pctgain);
+	print "=" x 120, "\n";
+}
+
+sub getstatusforsip() {
+	my ($sipid, $mfid, $mfname) = @_;
+	my $buyquery = "SELECT SUM(quantity), SUM(quantity * buyprice) FROM portfolio WHERE sipid = '$sipid'";
+	my $qresult = $dbh->selectall_arrayref($buyquery);
+	my ($quantity, $total) = @{@$qresult[0]};
+
+	my $avgbuyprice = 0;
+	if ($quantity != 0) {
+		$avgbuyprice = $total / $quantity;
+		$avgbuyprice = (int(($avgbuyprice * 1000) + 0.5)) / 1000;
+	}
+
+	$total = (int(($total * 1000) + 0.5)) / 1000;
+
+	my $currentnavquery = "SELECT nav FROM navhistory WHERE mfid = '$mfid' AND date = (SELECT MAX(date) FROM navhistory WHERE mfid = '$mfid')";
+	$qresult = $dbh->selectall_arrayref($currentnavquery);
+	my ($currentprice) = @{@$qresult[0]};
+	my $currentvalue = $currentprice * $quantity;
+	my $gain = $currentvalue - $total;
+	my $pctgain = 0;
+	if ($total != 0) {
+		$pctgain = $gain / $total * 100;
+	}
+	printf ("% 50s %8.3f %10.3f %8.3f %8.3f %10.3f %10.3f %8.3f%\n", $mfname, $quantity, $total, $avgbuyprice, $currentprice, $currentvalue, $gain, $pctgain);
+	return ($total, $currentvalue);
+}
+
+sub getstatusbysip() {
+	print "=" x 120, "\n";
+	printf ("%50s %8s %10s %8s %8s %10s %10s %9s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain');
+	print "-" x 120, "\n";
+	my $listportfoliosquery = "SELECT s.sipid, s.mfid, m.mfname FROM sips s, mfinfo m WHERE s.mfid = m.mfid";
+	my $qresult = $dbh->selectall_arrayref($listportfoliosquery);
+	my $totalbuyvalue = 0, $totalcurrentvalue = 0;
+	for my $mfrow (@$qresult) {
+		my ($sipid, $mfid, $mfname) = @$mfrow;
+		my ($buyvalue, $currentvalue) = &getstatusforsip($sipid, $mfid, $mfname);
+		$totalbuyvalue += $buyvalue;
+		$totalcurrentvalue += $currentvalue;
+	}
+	my $gain = $totalcurrentvalue - $totalbuyvalue;
+	my $pctgain = $gain / $totalbuyvalue * 100;
+	print "-" x 120, "\n";
+	printf ("%50s %19.3f %28.3f %10.3f %8.3f%\n", 'Total', $totalbuyvalue, $totalcurrentvalue, $gain, $pctgain);
+	print "=" x 120, "\n";
 }
 
 sub addmf() {
@@ -336,10 +383,11 @@ sub showhelp() {
 	print "    1) fetch      - Fetch NAV values for all MFs in DB.\n";
 	print "    2) updatesips - Update portfolio holdings for SIPs.\n";
 	print "    3) status     - Print current portfolio status.\n";
-	print "    4) addmf      - Add a new MF into the DB.\n";
-	print "    5) addsip     - Add a new SIP into the DB.\n";
-	print "    6) daily      - Perform fetch, updatesips and status operations.\n";
-	print "    7) help       - Show this help message.\n";
+	print "    4) sipstatus  - Print current portfolio status per SIP.\n";
+	print "    5) addmf      - Add a new MF into the DB.\n";
+	print "    6) addsip     - Add a new SIP into the DB.\n";
+	print "    7) daily      - Perform fetch, updatesips and status operations.\n";
+	print "    8) help       - Show this help message.\n";
 }
 
 open STDERR, '>/dev/null';
@@ -354,6 +402,9 @@ if ($#ARGV >= 0) {
 		}
 		case "status" {
 			&getstatusbymf();
+		}
+		case "sipstatus" {
+			&getstatusbysip();
 		}
 		case "addmf" {
 			if ($#ARGV == 0) {
