@@ -348,6 +348,24 @@ sub addmf() {
 	}
 }
 
+sub delsip() {
+	my $sipid = $_[0];
+	my $checksipexistsquery = "SELECT COUNT(*) FROM sips WHERE sipid = '$sipid'";
+	@qresult = $dbh->selectall_arrayref($checksipexistsquery);
+	if ($qresult[0][0][0] != 0) {
+		print "Deleting portfolio entries for sip $sipid...\n";
+		$holdingsdeletequery = "DELETE FROM portfolio WHERE sipid = $sipid";
+		$dbh->do($holdingsdeletequery);
+
+		print "Deleting sip $sipid...\n";
+		$sipdeletequery = "DELETE FROM sips WHERE sipid = $sipid";
+		$dbh->do($sipdeletequery);
+	}
+	else {
+		print "$sipid does not exist in the database. Skipping...\n";
+	}
+}
+
 sub addsip() {
 	my ($mfid, $sipamount, $sipdate, $installments) = @_;
 	my $checkmfexistsquery = "SELECT COUNT(*) FROM mfinfo WHERE mfid = '$mfid'";
@@ -386,8 +404,9 @@ sub showhelp() {
 	print "    4) sipstatus  - Print current portfolio status per SIP.\n";
 	print "    5) addmf      - Add a new MF into the DB.\n";
 	print "    6) addsip     - Add a new SIP into the DB.\n";
-	print "    7) daily      - Perform fetch, updatesips and status operations.\n";
-	print "    8) help       - Show this help message.\n";
+	print "    7) delsip     - Deleta a SIP and its portfolio entries from the DB.\n";
+	print "    8) daily      - Perform fetch, updatesips and status operations.\n";
+	print "    9) help       - Show this help message.\n";
 }
 
 open STDERR, '>/dev/null';
@@ -412,7 +431,7 @@ if ($#ARGV >= 0) {
 				last;
 			}
 			foreach $argnum (1 .. $#ARGV) {
-				$mf = $ARGV[$argnum];
+				my $mf = $ARGV[$argnum];
 				&addmf($mf);
 			}
 		}
@@ -424,6 +443,16 @@ if ($#ARGV >= 0) {
 			else {
 				my ($command, $mfid, $sipamount, $sipdate, $installments) = @ARGV;
 				&addsip($mfid, $sipamount, $sipdate, $installments);
+			}
+		}
+		case "delsip" {
+			if ($#ARGV == 0) {
+				print "[Error] Need to provide at least 1 SIP ID to delete.\n";
+				last;
+			}
+			foreach $argnum (1 .. $#ARGV) {
+				my $sipid = $ARGV[$argnum];
+				&delsip($sipid);
 			}
 		}
 		case "daily" {
