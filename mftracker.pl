@@ -210,7 +210,7 @@ sub updatesip() {
 		# Else, if sipdate <= today and NAV data exists for sipdate,
 		# add new entry to portfolio.
 
-		my $holdingexistsquery = "SELECT COUNT(*) FROM portfolio WHERE buydate >= $sipdate and mfid = '$mfid'";
+		my $holdingexistsquery = "SELECT COUNT(*) FROM portfolio WHERE buydate >= $sipdate and sipid = '$sipid'";
 		@qresult = $dbh->selectall_arrayref($holdingexistsquery);
 		if ($qresult[0][0][0] == 0) {
 			my $buydatequery = "SELECT MIN(date) FROM (SELECt * FROM navhistory WHERE mfid = '$mfid' AND date >= $sipdate)";
@@ -372,11 +372,11 @@ sub addsip() {
 	@qresult = $dbh->selectall_arrayref($checkmfexistsquery);
 	if ($qresult[0][0][0] == 0) {
 		print "Adding $mfid...\n";
-		$insertquery = "INSERT INTO mfinfo VALUES('$mf', '', 0)";
+		$insertquery = "INSERT INTO mfinfo VALUES('$mfid', '', 0)";
 		$dbh->do($insertquery);
 	}
 	print "Adding sip for $mfid...\n";
-	$insertquery = "INSERT INTO sips VALUES(NULL, '$mfid', $sipamount, $sipdate, $installments)";
+	$insertquery = "INSERT INTO sips VALUES(NULL, '$mfid', $sipamount, $sipdate, $installments, 0)";
 	$dbh->do($insertquery);
 }
 
