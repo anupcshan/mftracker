@@ -395,6 +395,31 @@ sub dailyjob() {
 	&getstatusbymf();
 }
 
+sub showdates() {
+	print "=" x 14, "\n";
+	printf ("%5s %8s\n", 'Date', 'Amount');
+	print "-" x 14, "\n";
+	my $sipsdayquery = "SELECT DISTINCT sipdate%100 day, SUM(sipamount) FROM sips GROUP BY day ORDER BY day";
+	my $qresult = $dbh->selectall_arrayref($sipsdayquery);
+	my $totalamount = 0;
+	my $currentday = UnixDate(ParseDate("today"), "%d");
+	my $foundcurrentday = 0;
+	for my $mfrow (@$qresult) {
+		my ($day, $amount) = @$mfrow;
+		if ($foundcurrentday == 0 && $day >= $currentday) {
+			printf ("->%3d %8d\n", $day, $amount);
+			$foundcurrentday = 1;
+		}
+		else {
+			printf ("%5d %8d\n", $day, $amount);
+		}
+		$totalamount += $amount;
+	}
+	print "-" x 14, "\n";
+	printf ("%5s %8d\n", '', $totalamount);
+	print "=" x 14, "\n";
+}
+
 sub showhelp() {
 	print "Usage: mftracker.pl <command> <arguments>\n";
 	print "Commands: \n";
@@ -406,7 +431,8 @@ sub showhelp() {
 	print "    6) addsip     - Add a new SIP into the DB.\n";
 	print "    7) delsip     - Deleta a SIP and its portfolio entries from the DB.\n";
 	print "    8) daily      - Perform fetch, updatesips and status operations.\n";
-	print "    9) help       - Show this help message.\n";
+	print "    9) dates      - Print distribution of sip dates over a month.\n";
+	print "   10) help       - Show this help message.\n";
 }
 
 open STDERR, '>/dev/null';
@@ -457,6 +483,9 @@ if ($#ARGV >= 0) {
 		}
 		case "daily" {
 			&dailyjob();
+		}
+		case "dates" {
+			&showdates();
 		}
 		case "help" {
 			&showhelp();
