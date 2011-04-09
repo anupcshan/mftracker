@@ -248,13 +248,28 @@ sub updateallsips() {
 	}
 }
 
-sub getstatusformf() {
-	my ($mfid, $mfname) = @_;
+sub getmfbuyquery() {
+	my ($mfid) = @_;
 	my $buyquery = "SELECT SUM(quantity), SUM(quantity * buyprice) FROM portfolio WHERE mfid = '$mfid'";
+	return $buyquery;
+}
+
+sub getsipbuyquery() {
+	my ($sipid) = @_;
+	my $buyquery = "SELECT SUM(quantity), SUM(quantity * buyprice) FROM portfolio WHERE sipid = '$sipid'";
+	return $buyquery;
+}
+
+sub getstatusformfsip() {
+	my ($mfid, $mfname, $buyquery) = @_;
 	my $qresult = $dbh->selectall_arrayref($buyquery);
 	my ($quantity, $total) = @{@$qresult[0]};
-	my $avgbuyprice = $total / $quantity;
-	$avgbuyprice = (int(($avgbuyprice * 1000) + 0.5)) / 1000;
+
+	my $avgbuyprice = 0;
+	if ($quantity != 0) {
+		$avgbuyprice = $total / $quantity;
+		$avgbuyprice = (int(($avgbuyprice * 1000) + 0.5)) / 1000;
+	}
 	$total = (int(($total * 1000) + 0.5)) / 1000;
 
 	my $currentnavquery = "SELECT nav FROM navhistory WHERE mfid = '$mfid' AND date = (SELECT MAX(date) FROM navhistory WHERE mfid = '$mfid')";
@@ -262,7 +277,10 @@ sub getstatusformf() {
 	my ($currentprice) = @{@$qresult[0]};
 	my $currentvalue = $currentprice * $quantity;
 	my $gain = $currentvalue - $total;
-	my $pctgain = $gain / $total * 100;
+	my $pctgain = 0;
+	if ($total != 0) {
+		$pctgain = $gain / $total * 100;
+	}
 	printf ("%50s %8.3f %10.3f %8.3f %8.3f %10.3f %10.3f %8.3f%\n", $mfname, $quantity, $total, $avgbuyprice, $currentprice, $currentvalue, $gain, $pctgain);
 	return ($total, $currentvalue);
 }
@@ -276,7 +294,7 @@ sub getstatusbymf() {
 	my $totalbuyvalue = 0, $totalcurrentvalue = 0;
 	for my $mfrow (@$qresult) {
 		my ($mfid, $mfname) = @$mfrow;
-		my ($buyvalue, $currentvalue) = &getstatusformf($mfid, $mfname);
+		my ($buyvalue, $currentvalue) = &getstatusformfsip($mfid, $mfname, &getmfbuyquery($mfid));
 		$totalbuyvalue += $buyvalue;
 		$totalcurrentvalue += $currentvalue;
 	}
@@ -285,33 +303,6 @@ sub getstatusbymf() {
 	print "-" x 120, "\n";
 	printf ("%50s %19.3f %28.3f %10.3f %8.3f%\n", 'Total', $totalbuyvalue, $totalcurrentvalue, $gain, $pctgain);
 	print "=" x 120, "\n";
-}
-
-sub getstatusforsip() {
-	my ($sipid, $mfid, $mfname) = @_;
-	my $buyquery = "SELECT SUM(quantity), SUM(quantity * buyprice) FROM portfolio WHERE sipid = '$sipid'";
-	my $qresult = $dbh->selectall_arrayref($buyquery);
-	my ($quantity, $total) = @{@$qresult[0]};
-
-	my $avgbuyprice = 0;
-	if ($quantity != 0) {
-		$avgbuyprice = $total / $quantity;
-		$avgbuyprice = (int(($avgbuyprice * 1000) + 0.5)) / 1000;
-	}
-
-	$total = (int(($total * 1000) + 0.5)) / 1000;
-
-	my $currentnavquery = "SELECT nav FROM navhistory WHERE mfid = '$mfid' AND date = (SELECT MAX(date) FROM navhistory WHERE mfid = '$mfid')";
-	$qresult = $dbh->selectall_arrayref($currentnavquery);
-	my ($currentprice) = @{@$qresult[0]};
-	my $currentvalue = $currentprice * $quantity;
-	my $gain = $currentvalue - $total;
-	my $pctgain = 0;
-	if ($total != 0) {
-		$pctgain = $gain / $total * 100;
-	}
-	printf ("% 50s %8.3f %10.3f %8.3f %8.3f %10.3f %10.3f %8.3f%\n", $mfname, $quantity, $total, $avgbuyprice, $currentprice, $currentvalue, $gain, $pctgain);
-	return ($total, $currentvalue);
 }
 
 sub getstatusbysip() {
@@ -323,7 +314,7 @@ sub getstatusbysip() {
 	my $totalbuyvalue = 0, $totalcurrentvalue = 0;
 	for my $mfrow (@$qresult) {
 		my ($sipid, $mfid, $mfname) = @$mfrow;
-		my ($buyvalue, $currentvalue) = &getstatusforsip($sipid, $mfid, $mfname);
+		my ($buyvalue, $currentvalue) = &getstatusformfsip($mfid, $mfname, &getsipbuyquery($sipid));
 		$totalbuyvalue += $buyvalue;
 		$totalcurrentvalue += $currentvalue;
 	}
@@ -435,7 +426,7 @@ sub showhelp() {
 	print "   10) help       - Show this help message.\n";
 }
 
-open STDERR, '>/dev/null';
+#open STDERR, '>/dev/null';
 if ($#ARGV >= 0) {
 	my $command = $ARGV[0];
 	switch ($command) {
@@ -499,4 +490,4 @@ if ($#ARGV >= 0) {
 else {
 	&showhelp();
 }
-close STDERR;
+#close STDERR;
