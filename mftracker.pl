@@ -303,7 +303,7 @@ sub getstatusbymf() {
 	print "=" x 132, "\n";
 	printf ("%50s %8s %10s %8s %8s %10s %10s %9s %11s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain', 'Commitment');
 	print "-" x 132, "\n";
-	my $listportfoliosquery = "SELECT mfid, mfname FROM mfinfo WHERE mfid IN (SELECT DISTINCT mfid FROM portfolio)";
+	my $listportfoliosquery = "SELECT mfid, mfname FROM mfinfo WHERE mfid IN (SELECT DISTINCT mfid FROM portfolio) ORDER BY mfname";
 	my $qresult = $dbh->selectall_arrayref($listportfoliosquery);
 	my $totalbuyvalue = 0, $totalcurrentvalue = 0, $totalcommitment = 0;
 	for my $mfrow (@$qresult) {
@@ -324,7 +324,7 @@ sub getstatusbysip() {
 	print "=" x 132, "\n";
 	printf ("%50s %8s %10s %8s %8s %10s %10s %9s %11s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain', 'Commitment');
 	print "-" x 132, "\n";
-	my $listportfoliosquery = "SELECT s.sipid, s.mfid, m.mfname FROM sips s, mfinfo m WHERE s.mfid = m.mfid";
+	my $listportfoliosquery = "SELECT s.sipid, s.mfid, m.mfname FROM sips s, mfinfo m WHERE s.mfid = m.mfid ORDER BY mfname";
 	my $qresult = $dbh->selectall_arrayref($listportfoliosquery);
 	my $totalbuyvalue = 0, $totalcurrentvalue = 0, $totalcommitment = 0;
 	for my $mfrow (@$qresult) {
