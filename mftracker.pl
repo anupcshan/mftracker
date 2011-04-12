@@ -273,7 +273,7 @@ sub getsipcommitmentquery() {
 }
 
 sub getstatusformfsip() {
-	my ($mfid, $mfname, $buyquery, $commitmentquery) = @_;
+	my ($mfid, $mfname, $totalvalue, $buyquery, $commitmentquery) = @_;
 	my $qresult = $dbh->selectall_arrayref($buyquery);
 	my ($quantity, $total) = @{@$qresult[0]};
 	$qresult = $dbh->selectall_arrayref($commitmentquery);
@@ -295,50 +295,58 @@ sub getstatusformfsip() {
 	if ($total != 0) {
 		$pctgain = $gain / $total * 100;
 	}
-	printf ("%50s %8.3f %10.3f %8.3f %8.3f %10.3f %10.3f %8.3f%% %11.3f\n", $mfname, $quantity, $total, $avgbuyprice, $currentprice, $currentvalue, $gain, $pctgain, $commitment);
+	my $pctofportfolio = 0;
+	if ($totalvalue != 0) {
+		$pctofportfolio = $total / $totalvalue * 100;
+	}
+	printf ("%50s %8.3f %10.3f %8.3f %8.3f %10.3f %10.3f %8.3f%% %11.3f %8.3f%%\n", $mfname, $quantity, $total, $avgbuyprice, $currentprice, $currentvalue, $gain, $pctgain, $commitment, $pctofportfolio);
 	return ($total, $currentvalue, $commitment);
 }
 
 sub getstatusbymf() {
-	print "=" x 132, "\n";
-	printf ("%50s %8s %10s %8s %8s %10s %10s %9s %11s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain', 'Commitment');
-	print "-" x 132, "\n";
+	print "=" x 142, "\n";
+	printf ("%50s %8s %10s %8s %8s %10s %10s %9s %11s %8s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain', 'Commitment', 'Folio Pct');
+	print "-" x 142, "\n";
+	my $result = $dbh->selectall_arrayref("SELECT SUM(quantity * buyprice) FROM portfolio");
+	my ($totalvalue) = @{@$result[0]};
 	my $listportfoliosquery = "SELECT mfid, mfname FROM mfinfo WHERE mfid IN (SELECT DISTINCT mfid FROM portfolio) ORDER BY mfname";
 	my $qresult = $dbh->selectall_arrayref($listportfoliosquery);
 	my $totalbuyvalue = 0, $totalcurrentvalue = 0, $totalcommitment = 0;
 	for my $mfrow (@$qresult) {
 		my ($mfid, $mfname) = @$mfrow;
-		my ($buyvalue, $currentvalue, $commitment) = &getstatusformfsip($mfid, $mfname, &getmfbuyquery($mfid), &getmfcommitmentquery($mfid));
+		my ($buyvalue, $currentvalue, $commitment) = &getstatusformfsip($mfid, $mfname, $totalvalue, &getmfbuyquery($mfid), &getmfcommitmentquery($mfid));
 		$totalbuyvalue += $buyvalue;
 		$totalcurrentvalue += $currentvalue;
 		$totalcommitment += $commitment;
 	}
 	my $gain = $totalcurrentvalue - $totalbuyvalue;
 	my $pctgain = $gain / $totalbuyvalue * 100;
-	print "-" x 132, "\n";
+	print "-" x 142, "\n";
 	printf ("%50s %19.3f %28.3f %10.3f %8.3f%% %11.3f\n", 'Total', $totalbuyvalue, $totalcurrentvalue, $gain, $pctgain, $totalcommitment);
-	print "=" x 132, "\n";
+	print "=" x 142, "\n";
 }
 
 sub getstatusbysip() {
-	print "=" x 132, "\n";
-	printf ("%50s %8s %10s %8s %8s %10s %10s %9s %11s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain', 'Commitment');
-	print "-" x 132, "\n";
+	print "=" x 142, "\n";
+	printf ("%50s %8s %10s %8s %8s %10s %10s %9s %11s %8s\n", 'Name', 'Units', 'Total', 'Avg Cost', 'Cur Cost', 'Cur Value', 'Gain', 'Pct Gain', 'Commitment', 'Folio Pct');
+	print "-" x 142, "\n";
+	my $result = $dbh->selectall_arrayref("SELECT SUM(quantity * buyprice) FROM portfolio");
+	my ($totalvalue) = @{@$result[0]};
 	my $listportfoliosquery = "SELECT s.sipid, s.mfid, m.mfname FROM sips s, mfinfo m WHERE s.mfid = m.mfid ORDER BY mfname";
 	my $qresult = $dbh->selectall_arrayref($listportfoliosquery);
 	my $totalbuyvalue = 0, $totalcurrentvalue = 0, $totalcommitment = 0;
 	for my $mfrow (@$qresult) {
 		my ($sipid, $mfid, $mfname) = @$mfrow;
-		my ($buyvalue, $currentvalue, $commitment) = &getstatusformfsip($mfid, $mfname, &getsipbuyquery($sipid), &getsipcommitmentquery($sipid));
+		my ($buyvalue, $currentvalue, $commitment) = &getstatusformfsip($mfid, $mfname, $totalvalue, &getsipbuyquery($sipid), &getsipcommitmentquery($sipid));
 		$totalbuyvalue += $buyvalue;
 		$totalcurrentvalue += $currentvalue;
 		$totalcommitment += $commitment;
 	}
 	my $gain = $totalcurrentvalue - $totalbuyvalue;
 	my $pctgain = $gain / $totalbuyvalue * 100;
-	print "-" x 132, "\n";
+	print "-" x 142, "\n";
 	printf ("%50s %19.3f %28.3f %10.3f %8.3f%% %11.3f\n", 'Total', $totalbuyvalue, $totalcurrentvalue, $gain, $pctgain, $totalcommitment);
-	print "=" x 132, "\n";
+	print "=" x 142, "\n";
 }
 
 sub addmf() {
