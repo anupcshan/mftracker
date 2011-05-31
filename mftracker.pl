@@ -435,6 +435,26 @@ sub showdates() {
 	print "=" x 14, "\n";
 }
 
+sub conkydisplay() {
+	my $totalcurrentvaluequery = "SELECT SUM(quantity * (SELECT nav FROM navhistory WHERE mfid = portfolio.mfid AND date = (SELECT MAX(date) FROM navhistory WHERE mfid = portfolio.mfid))) FROM portfolio";
+	my @qresult = $dbh->selectall_arrayref($totalcurrentvaluequery);
+	my $totalcurrentvalue = $qresult[0][0][0];
+	printf ("\${font PizzaDudeBullets:size=9.5}\${color6}T\${font DroidSans:size=8.5}\${color3}\${offset 5}Current Value\${alignr}\${font DroidSans:size=8.3}%.3f\${font}\n", $totalcurrentvalue);
+
+	my @qresult = $dbh->selectall_arrayref("SELECT SUM(quantity * buyprice) FROM portfolio");
+	my $totalvalue = $qresult[0][0][0];
+	printf ("\${font PizzaDudeBullets:size=9.5}\${color6}T\${font DroidSans:size=8.5}\${color3}\${offset 5}Total investment\${alignr}\${font DroidSans:size=8.3}%.3f\${font}\n", $totalvalue);
+
+	my $profit = $totalcurrentvalue - $totalvalue;
+	my $pctprofit = $profit * 100 / $totalvalue;
+	if ($profit > 0) {
+		printf ("\${font PizzaDudeBullets:size=9.5}\${color6}a\${font DroidSans:size=8.5}\${color1}\${offset 5}Profit\${alignr}\${font DroidSans:size=8.3}%.3f (%.2f%%)\${font}\n", $profit, $pctprofit);
+	}
+	else {
+		printf ("\${font PizzaDudeBullets:size=9.5}\${color6}a\${font DroidSans:size=8.5}\${color0}\${offset 5}Loss\${alignr}\${font DroidSans:size=8.3}%.3f (%.2f%%)\${font}\n", -$profit, -$pctprofit);
+	}
+}
+
 sub showhelp() {
 	print "Usage: mftracker.pl <command> <arguments>\n";
 	print "Commands: \n";
@@ -447,7 +467,8 @@ sub showhelp() {
 	print "    7) delsip     - Deleta a SIP and its portfolio entries from the DB.\n";
 	print "    8) daily      - Perform fetch, updatesips and status operations.\n";
 	print "    9) dates      - Print distribution of sip dates over a month.\n";
-	print "   10) help       - Show this help message.\n";
+	print "   10) conky      - Added conky-formatted output.\n";
+	print "   11) help       - Show this help message.\n";
 }
 
 open STDERR, '>/dev/null';
@@ -501,6 +522,9 @@ if ($#ARGV >= 0) {
 		}
 		case "dates" {
 			&showdates();
+		}
+		case "conky" {
+			&conkydisplay();
 		}
 		case "help" {
 			&showhelp();
