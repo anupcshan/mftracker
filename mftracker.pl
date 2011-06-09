@@ -455,6 +455,28 @@ sub conkydisplay() {
 	}
 }
 
+sub exportcsv() {
+	my $startdate = ($dbh->selectall_arrayref("SELECT MIN(buydate) FROM portfolio"))[0][0][0];
+	my $today = UnixDate(DateCalc(ParseDate("today"), "- 1 days"), "%Y%m%d");
+	printf("%s,%s,%s,%s,%s\n", "Date", "Current Value", "Total Invested", "Profit", "Percent Profit");
+
+	do {
+		my $totalcurrentvaluequery = "SELECT SUM(quantity * (SELECT nav FROM navhistory WHERE mfid = portfolio.mfid AND date = (SELECT MAX(date) FROM navhistory WHERE mfid = portfolio.mfid AND date <= $startdate))) FROM portfolio WHERE buydate <= $startdate";
+		my @qresult = $dbh->selectall_arrayref($totalcurrentvaluequery);
+		my $totalcurrentvalue = $qresult[0][0][0];
+
+		my @qresult = $dbh->selectall_arrayref("SELECT SUM(quantity * buyprice) FROM portfolio WHERE buydate <= $startdate");
+		my $totalvalue = $qresult[0][0][0];
+
+		my $profit = $totalcurrentvalue - $totalvalue;
+		my $pctprofit = $profit * 100 / $totalvalue;
+
+		my $startdateformatted = UnixDate($startdate, "%Y/%m/%d");
+		printf("%s,%.3f,%.3f,%.3f,%.2f\n", $startdateformatted, $totalcurrentvalue, $totalvalue, $profit, $pctprofit);
+		$startdate = UnixDate(DateCalc($startdate, "+ 1 days"), "%Y%m%d");
+	} while ($startdate <= $today);
+}
+
 sub showhelp() {
 	print "Usage: mftracker.pl <command> <arguments>\n";
 	print "Commands: \n";
@@ -525,6 +547,9 @@ if ($#ARGV >= 0) {
 		}
 		case "conky" {
 			&conkydisplay();
+		}
+		case "exportcsv" {
+			&exportcsv();
 		}
 		case "help" {
 			&showhelp();
