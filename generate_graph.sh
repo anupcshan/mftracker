@@ -12,12 +12,13 @@ sed -i "s/,/ /g" $MFSTATUSFILE
 wget -c -q "http://ichart.finance.yahoo.com/table.csv?s=%5EBSESN&a=00&b=5&c=2011&g=d&ignore=.csv" -O $SENSEXCSV
 cp $SENSEXCSV $SENSEXDAT
 sed -i 1d $SENSEXDAT
+startsensex=`tail -n1 $SENSEXDAT | grep -o "[0-9.]*$"`
 for line in `cat $SENSEXDAT`
 do
     date=`echo $line | grep -o "^[0-9-]*" | sed "s#-#/#g"`
     profit=`grep "$date" $MFSTATUSFILE | grep -o "[-0-9.]*$"`
     today=`echo $line | grep -o "[0-9.]*$"`
-    relative=`echo "scale=4; ($today-20301.10)/203.0110" | bc`
+    relative=`echo "scale=4; 100*($today-$startsensex)/$startsensex" | bc`
     change=`echo "$profit - $relative" | bc`
     sed -i "s/$line/$line,$relative,$change/" $SENSEXDAT
 done
