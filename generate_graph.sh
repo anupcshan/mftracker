@@ -4,6 +4,7 @@ MFSTATUSFILE=$DIR/invest.csv
 SENSEXCSV=$DIR/sensex.csv
 SENSEXDAT=$DIR/sensex.dat
 
+rm -rf $DIR
 mkdir -p $DIR
 ./mftracker.pl exportcsv > $MFSTATUSFILE
 sed -i 1d $MFSTATUSFILE
