@@ -29,6 +29,7 @@ cat << EOF > $DIR/gnuplot.scr
 set xdata time
 set timefmt "%Y/%m/%d"
 plot "$MFSTATUSFILE" using 1:5 with lines title 'Profit'
+replot 0 with lines title 'Zero'
 replot "$SENSEXDAT" using 1:8 with lines title 'Sensex'
 replot "$SENSEXDAT" using 1:9 with lines title 'Change'
 set terminal png size 1440,900
