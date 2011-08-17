@@ -458,7 +458,16 @@ sub conkydisplay() {
 sub exportcsv() {
 	my $startdate = ($dbh->selectall_arrayref("SELECT MIN(buydate) FROM portfolio"))[0][0][0];
 	my $today = UnixDate(DateCalc(ParseDate("today"), "- 1 days"), "%Y%m%d");
-	printf("%s,%s,%s,%s,%s\n", "Date", "Current Value", "Total Invested", "Profit", "Percent Profit");
+
+    my $mfnames = "";
+	my $listmfsquery = "SELECT mfid, mfname FROM mfinfo ORDER BY mfid";
+	my $qresult = $dbh->selectall_arrayref($listmfsquery);
+	for my $mfrow (@$qresult) {
+		my ($mfid, $mfname) = @$mfrow;
+        $mfnames = $mfnames.','.'"'.$mfname.'"';
+    }
+
+	printf("%s,%s,%s,%s,%s%s\n", "Date", "Current Value", "Total Invested", "Profit", "Percent Profit", $mfnames);
 
 	do {
 		my $totalcurrentvaluequery = "SELECT SUM(quantity * (SELECT nav FROM navhistory WHERE mfid = portfolio.mfid AND date = (SELECT MAX(date) FROM navhistory WHERE mfid = portfolio.mfid AND date <= $startdate))) FROM portfolio WHERE buydate <= $startdate";
@@ -471,8 +480,34 @@ sub exportcsv() {
 		my $profit = $totalcurrentvalue - $totalvalue;
 		my $pctprofit = $profit * 100 / $totalvalue;
 
+        my $mfvalues = "";
+        my $listmfsquery = "SELECT mfid FROM mfinfo ORDER BY mfid";
+        my $mfresult = $dbh->selectall_arrayref($listmfsquery);
+        for my $mfrow (@$mfresult) {
+            my ($mfid) = @$mfrow;
+            my $totalcurrentvaluequery = "SELECT SUM(quantity * (SELECT nav FROM navhistory WHERE mfid = portfolio.mfid AND date = (SELECT MAX(date) FROM navhistory WHERE mfid = portfolio.mfid AND date <= $startdate))) FROM portfolio WHERE buydate <= $startdate AND mfid = '$mfid'";
+            my @qresult = $dbh->selectall_arrayref($totalcurrentvaluequery);
+            my $mfcurrentvalue = $qresult[0][0][0];
+
+            my @qresult = $dbh->selectall_arrayref("SELECT SUM(quantity * buyprice) FROM portfolio WHERE buydate <= $startdate AND mfid = '$mfid'");
+            my $mfinvestedvalue = $qresult[0][0][0];
+
+            my $mfprofitpct = 0;
+
+            if (not $mfcurrentvalue) {
+                $mfcurrentvalue = 0;
+            }
+            if (not $mfinvestedvalue) {
+                $mfinvestedvalue = 0;
+            }
+            else {
+                $mfprofitpct = ($mfcurrentvalue - $mfinvestedvalue) * 100 / $mfinvestedvalue;
+            }
+            $mfvalues = $mfvalues.','.$mfprofitpct;
+        }
+
 		my $startdateformatted = UnixDate($startdate, "%Y/%m/%d");
-		printf("%s,%.3f,%.3f,%.3f,%.2f\n", $startdateformatted, $totalcurrentvalue, $totalvalue, $profit, $pctprofit);
+		printf("%s,%.3f,%.3f,%.3f,%.2f%s\n", $startdateformatted, $totalcurrentvalue, $totalvalue, $profit, $pctprofit, $mfvalues);
 		$startdate = UnixDate(DateCalc($startdate, "+ 1 days"), "%Y%m%d");
 	} while ($startdate <= $today);
 }

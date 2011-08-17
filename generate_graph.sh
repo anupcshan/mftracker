@@ -7,6 +7,7 @@ DATAFILE=$DIR/data.dat
 rm -rf $DIR
 mkdir -p $DIR
 ./mftracker.pl exportcsv > $MFSTATUSFILE
+titles=`head -n1 $MFSTATUSFILE`
 sed -i 1d $MFSTATUSFILE
 sed -i "s/,/ /g" $MFSTATUSFILE
 
@@ -33,6 +34,17 @@ set timefmt "%Y/%m/%d"
 plot "$MFSTATUSFILE" using 1:5 with lines title 'Profit'
 replot "$DATAFILE" using 1:3 with lines title 'Sensex'
 replot "$DATAFILE" using 1:4 with lines title 'Change'
+EOF
+
+i=6
+while [ ! -z `head -n1 $MFSTATUSFILE | cut -f $i -d ' '` ]
+do
+    title=`echo $titles | cut -f $i -d ',' | sed 's/"//g'`
+    echo "replot \"$MFSTATUSFILE\" using 1:$i with lines title '$title'" >> $DIR/gnuplot.scr
+    i=`echo $i + 1 | bc`
+done
+
+cat << EOF >> $DIR/gnuplot.scr
 replot 0 with lines title 'Zero'
 set terminal png size 1440,900
 set output "$DIR/graph.png"
