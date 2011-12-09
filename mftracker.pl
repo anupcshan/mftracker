@@ -508,7 +508,12 @@ sub exportcsv() {
 
 		my $startdateformatted = UnixDate($startdate, "%Y/%m/%d");
 		printf("%s,%.3f,%.3f,%.3f,%.2f%s\n", $startdateformatted, $totalcurrentvalue, $totalvalue, $profit, $pctprofit, $mfvalues);
-		$startdate = UnixDate(DateCalc($startdate, "+ 1 days"), "%Y%m%d");
+		$nextdate = UnixDate(DateCalc($startdate, "+ 1 days"), "%Y%m%d");
+		if ($nextdate == $startdate) {
+			# Handle DST switch.
+			$nextdate = UnixDate(DateCalc($startdate, "+ 2 days"), "%Y%m%d");
+		}
+		$startdate = $nextdate;
 	} while ($startdate <= $today);
 }
 
